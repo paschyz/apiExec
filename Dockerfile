@@ -21,6 +21,4 @@ WORKDIR /app
 
 # Copiez les scripts dans le conteneur
 COPY . /app
-
-# Par défaut, exécutez Python (modifiez cette ligne en fonction de ce que vous voulez exécuter)
-CMD ["python3", "code.py"]
+RUN [ ! -f /app/code.py ] && echo 'print("Hello, World!")' > /app/code.py || true
