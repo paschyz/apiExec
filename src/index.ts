@@ -2,18 +2,29 @@ const express = require('express');
 const Docker = require('dockerode');
 const fs = require('fs');
 const path = require('path');
+const bodyParser = require('body-parser');
 
 const docker = new Docker();
 const app = express();
 const PORT = 3000;
 
-// Définir la variable contenant le code à exécuter
-const codeToExecute = `
-print("Hello from the dynamically created script!")
-`;
+app.use(bodyParser.json());
+
+const LANGUAGES: { [key: string]: { extension: string; image: string; cmd: (filePath: any) => any[] } } = {
+    python: {
+        extension: 'py',
+        image: 'my-python-image',
+        cmd: (filePath: any) => ['python3', filePath]
+    },
+    javascript: {
+        extension: 'js',
+        image: 'my-node-image',
+        cmd: (filePath: any) => ['node', filePath]
+    }
+};
 
 // Fonction pour écrire le code dans un fichier
-function writeCodeToFile(code: string, filePath: any) {
+function writeCodeToFile(code: any, filePath: any) {
     return new Promise<void>((resolve, reject) => {
         fs.writeFile(filePath, code, (err: any) => {
             if (err) reject(err);
@@ -22,15 +33,22 @@ function writeCodeToFile(code: string, filePath: any) {
     });
 }
 
-app.get('/logs', async (req: any, res: any) => {
+app.post('/execute', async (req:any, res:any) => {
+    const { language, code } = req.body;
+    const langConfig = LANGUAGES[language];
+
+    if (!langConfig) {
+        return res.status(400).send('Unsupported language');
+    }
+
     try {
-        const containerName = 'my-python-container';
-        const codeFileName = 'script.py';
+        const containerName = `code-exec-container-${language}`;
+        const codeFileName = `script.${langConfig.extension}`;
         const hostCodeFilePath = path.join(__dirname, codeFileName);
         const containerCodeFilePath = `/app/${codeFileName}`;
 
         // Écrire le code dans un fichier sur l'hôte
-        await writeCodeToFile(codeToExecute, hostCodeFilePath);
+        await writeCodeToFile(code, hostCodeFilePath);
 
         // Vérifiez si le conteneur est déjà en cours d'exécution
         let container = docker.getContainer(containerName);
@@ -44,8 +62,8 @@ app.get('/logs', async (req: any, res: any) => {
 
         // Créez et démarrez le conteneur avec le fichier monté
         container = await docker.createContainer({
-            Image: 'my-python-image',
-            Cmd: ['python3', containerCodeFilePath],
+            Image: langConfig.image,
+            Cmd: langConfig.cmd(containerCodeFilePath),
             name: containerName,
             Tty: true,
             HostConfig: {

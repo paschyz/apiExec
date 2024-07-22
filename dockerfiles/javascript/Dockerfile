@@ -1,7 +1,5 @@
-FROM node:14
+# Utilisez une image de base officielle Node.js
+FROM node:16-slim
 
+# Créez un répertoire de travail
 WORKDIR /app
-
-COPY code.js /app/code.js
-
-CMD ["node", "code.js"]

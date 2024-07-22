@@ -1,2 +1,1 @@
-
-print("Hello from the dynamically created script!")
+print('not')
