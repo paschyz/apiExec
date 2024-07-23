@@ -5,15 +5,12 @@ import path from 'path';
 import multer from 'multer';
 import bodyParser from 'body-parser';
 
-// Initialiser Docker et Express
 const docker = new Docker();
 const app = express();
 const PORT = 3000;
 
-// Configuration de multer pour le téléchargement de fichiers
 const upload = multer({ dest: path.join(__dirname, 'uploads') });
 
-// Définir les configurations des langages
 interface LanguageConfig {
     extension: string;
     image: string;
@@ -120,12 +117,17 @@ app.post('/execute', upload.single('file'), async (req: Request, res: Response) 
         });
         logs.on('end', () => {
             res.end();
+            Promise.all([
+                deleteFile(path.join(__dirname, '/uploads', file.filename)),
+                deleteFile(hostCodeFilePath)
+            ]).catch(cleanupError => {
+                console.error('Error during cleanup:', cleanupError);
+            });
         });
-
     } catch (error) {
         console.error('Error:', error);
         res.status(500).send('An error occurred while fetching the logs.');
-    }
+    } 
 });
 
 app.listen(PORT, () => {
