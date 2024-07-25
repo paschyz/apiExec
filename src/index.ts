@@ -3,6 +3,7 @@ import Docker from 'dockerode';
 import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
+const tar = require('tar-stream');
 
 const docker = new Docker();
 const app = express();
@@ -157,15 +158,14 @@ app.post('/execute', upload.single('file'), async (req: Request, res: Response) 
     
                     // Obtenir le fichier depuis le conteneur
                     const stream = await container.getArchive({ path: containerPath });
-    
-                    // Envoyer le fichier en streaming à l'utilisateur
-                    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
-                    const mimeType = getMimeType(outputFileType);
-                    res.setHeader('Content-Type', mimeType);
-    
-                    // Pipe le flux de données vers la réponse HTTP
-                    stream.pipe(res);
-    
+                    const extract = tar.extract();
+
+                    extract.on('entry', (header: any, stream: { pipe: (arg0: express.Response<any, Record<string, any>>) => void; on: (arg0: string, arg1: any) => void; }, next: any) => {
+                        stream.pipe(res);
+                        stream.on('end', next);
+                    });
+            
+                    stream.pipe(extract);
     
                     stream.on('error', async (err: any) => {
                         console.error('Erreur lors de l\'envoi du fichier:', err);
